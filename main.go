@@ -2,6 +2,7 @@ package main
 
 import (
 	"cfo/config"
+	"cfo/model"
 	"cfo/repository/db/mysql"
 	"cfo/service"
 	"fmt"
@@ -61,7 +62,8 @@ func processText(update goTelegram.Update) {
 		manager.SendGenericMessage(fmt.Sprintf("Hello %s\nSend /help To See How To Use This Bot.", update.Message.From.Firstname), update.Message.Chat.ID)
 	case "/add":
 		message := update.Message
-		err := manager.SaveEntry(message.Chat.ID, message.Text)
+		text := strings.TrimLeft(message.Text, "/add ")
+		err := manager.SaveEntry(message.Chat.ID, message.MessageID, text)
 
 		if err != nil {
 			manager.SendGenericMessage("An error occurred while saving the entry", message.Chat.ID)
@@ -72,9 +74,22 @@ func processText(update goTelegram.Update) {
 		manager.SendGenericMessage("Entry Saved Successfully", message.Chat.ID)
 	case "/show":
 		message := update.Message
-		dates := strings.Split(message.Text, " ")
-		result, err := manager.RetrieveSpendingByDateRanges(message.Chat.ID, dates...)
-
+		dates := strings.Fields(message.Text)
+		var result []model.Spending
+		var err error
+		if len(dates) == 1 { // only /show was passed
+			result, err = manager.RetrieveSpendingByDateRanges(message.Chat.ID)
+		} else {
+			switch dates[1] {
+			case "week":
+				result, err = manager.RetrieveThisWeekSpending(message.Chat.ID)
+			case "yesterday":
+				result, err = manager.RetrieveYesterdaySpending(message.Chat.ID)
+			case "month":
+			default:
+				result, err = manager.RetrieveSpendingByDateRanges(message.Chat.ID, dates[1:]...)
+			}
+		}
 		if err != nil {
 			manager.SendGenericMessage("An error occurred while retrieving your entries", message.Chat.ID)
 			log.Println(err)
@@ -86,6 +101,7 @@ func processText(update goTelegram.Update) {
 		if err != nil {
 			log.Println(err)
 		}
+		return
 	case "/visualize":
 	case "/notionize":
 	case "/help":
