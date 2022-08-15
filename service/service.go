@@ -7,13 +7,26 @@ import (
 	"fmt"
 	"github.com/h4ckitt/goTelegram"
 	"log"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
+)
+
+var (
+	decimalRegex = regexp.MustCompile(`^\d+(?:.\d{2})?$`)
+	dateRegex    = regexp.MustCompile(`^\d{4}(?:-\d{2}){2}$`)
+	dotRemover   = strings.NewReplacer(".", "")
 )
 
 type Manager struct {
 	tbot *goTelegram.Bot
 	repo repository.Repo
+}
+
+func (m *Manager) RetrieveThisMonthSpending(userID int) ([]model.Spending, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m *Manager) SendGenericMessage(text string, userId int) {
@@ -28,10 +41,32 @@ func (m *Manager) SendGenericMessage(text string, userId int) {
 
 func (m *Manager) SendSpendingData(userID int, spending ...model.Spending) error {
 	text := strings.Builder{}
-	for _, record := range spending {
-		text.WriteString(fmt.Sprintf("Date: %s\nAmount: %.2f\nCategory: %s\nNote: %s\n\n", record.CreatedAt.Format("2006-01-02"),
-			record.Amount, record.Category, record.Note))
+
+	if len(spending) == 0 {
+		m.SendGenericMessage("No Spending Data Found For You", userID)
+		return nil
 	}
+	var (
+		previousTime string
+		total        int
+	)
+	for _, record := range spending {
+		tm := record.CreatedAt.Format("2006-01-02")
+		if previousTime != tm {
+			if previousTime != "" {
+				text.WriteString(fmt.Sprintf("Total: %.2f\n\n", float64(total)/100))
+				total = 0.00
+			}
+			text.WriteString(fmt.Sprintf("======== Date: %s ========\n", tm))
+		}
+
+		total += record.Amount
+		amt := float64(record.Amount) / 100
+		text.WriteString(fmt.Sprintf("Amount: %.2f\nCategory: %s\nNote: %s\n\n", amt, record.Category, record.Note))
+		previousTime = tm
+	}
+
+	text.WriteString(fmt.Sprintf("Total: %.2f\n\n", float64(total)/100))
 
 	m.SendGenericMessage(text.String(), userID)
 
@@ -48,6 +83,7 @@ func (m *Manager) RetrieveSpendingByDateRanges(userID int, ranges ...string) ([]
 	switch {
 	case len(ranges) == 0:
 		start = time.Now().Format("2006-01-02")
+		stop = start
 	case len(ranges) == 1:
 		_, err := time.Parse("2006-01-02", ranges[0])
 
@@ -57,6 +93,7 @@ func (m *Manager) RetrieveSpendingByDateRanges(userID int, ranges ...string) ([]
 		}
 
 		start = ranges[0]
+		stop = start
 	case len(ranges) == 2:
 		st, err := time.Parse("2006-01-02", ranges[0])
 		if err != nil {
@@ -126,7 +163,6 @@ func (m *Manager) RetrieveThisWeekSpending(userID int) ([]model.Spending, error)
 
 	nowString := now.Format("2006-01-02")
 	monDateString := monDate.Format("2006-01-02")
-
 	spendings, err := m.RetrieveSpendingByDateRanges(userID, monDateString, nowString)
 
 	if err != nil {
@@ -143,6 +179,51 @@ func NewManager(tbot *goTelegram.Bot, repo repository.Repo) *Manager {
 	}
 }
 
-func (m *Manager) SaveEntry(userID int, text string) error {
-	return nil
+func (m *Manager) SaveEntry(userID, messageID int, text string) error {
+	bits := strings.Fields(text)
+	if !decimalRegex.MatchString(bits[0]) {
+		return errors.New("invalid input detected")
+	}
+
+	date := time.Now()
+
+	var (
+		note string
+	)
+	amtStr := bits[0]
+	if !strings.Contains(amtStr, ".") {
+		amtStr = fmt.Sprintf("%s00", amtStr)
+	} else {
+		amtStr = dotRemover.Replace(amtStr)
+	}
+
+	if len(bits) > 1 {
+		length := len(bits)
+		if dateRegex.MatchString(bits[length-1]) {
+			var err error
+			date, err = time.Parse("2006-01-02", bits[length-1])
+			if err != nil {
+				return err
+			}
+			note = strings.Join(bits[1:length-1], " ")
+		} else {
+			note = strings.Join(bits[1:], " ")
+		}
+	}
+
+	amt, err := strconv.Atoi(amtStr)
+
+	if err != nil {
+		return err
+	}
+
+	entry := model.Spending{
+		MessageID: messageID,
+		Amount:    amt,
+		Note:      note,
+		CreatedAt: date,
+		Category:  "General",
+	}
+
+	return m.repo.SaveEntry(userID, entry)
 }
