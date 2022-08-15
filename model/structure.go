@@ -4,7 +4,7 @@ import "time"
 
 type Spending struct {
 	MessageID int
-	Amount    float32
+	Amount    int
 	Category  string
 	Note      string
 	CreatedAt time.Time
