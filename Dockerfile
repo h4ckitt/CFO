@@ -12,7 +12,7 @@ RUN apk --no-cache -U add libc-dev build-base ca-certificates
 
 RUN go build -ldflags "-linkmode external -extldflags -static" -o cfo .
 
-RUN if [ ! -f .env ]; then cp .env.example .env
+RUN if [ ! -f .env ]; then cp .env.example .env; fi
 
 
 FROM scratch
