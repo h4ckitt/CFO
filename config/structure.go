@@ -11,4 +11,5 @@ type MySQLDatabase struct {
 	Password string
 	IP       string
 	UserName string
+	Wait     bool
 }

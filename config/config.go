@@ -1,8 +1,10 @@
 package config
 
 import (
-	"github.com/joho/godotenv"
 	"os"
+	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 var conf config
@@ -21,6 +23,7 @@ func ReadConfig(filename string) error {
 			Password: os.Getenv("DB_PASS"),
 			Port:     os.Getenv("DB_PORT"),
 			IP:       os.Getenv("DB_IP"),
+			Wait:     strings.ToLower(os.Getenv("WAITDB")) == "true",
 		},
 		TBotAPIKey: os.Getenv("TBOT_API_KEY"),
 		PORT:       os.Getenv("PORT"),
