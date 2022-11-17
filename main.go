@@ -6,10 +6,12 @@ import (
 	"cfo/repository/db/mysql"
 	"cfo/service"
 	"fmt"
-	"github.com/h4ckitt/goTelegram"
 	"log"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/h4ckitt/goTelegram"
 )
 
 var manager service.Service
@@ -22,7 +24,9 @@ func main() {
 		log.Fatalf("an error occurred while reading config; %v\n", err)
 	}
 
-	b, err := goTelegram.NewBot(config.GetConfig().TBotAPIKey)
+	conf := config.GetConfig()
+
+	b, err := goTelegram.NewBot(conf.TBotAPIKey)
 
 	if err != nil {
 		log.Fatalf("an error occurred while creating the bot: %v\n", err)
@@ -34,6 +38,11 @@ func main() {
 
 	if err != nil {
 		log.Fatalf("an error occurred while creating the repo: %v\n", err)
+	}
+
+	for !repo.WaitForDB(conf.DB.IP, conf.DB.Port) {
+		time.Sleep(1)
+		continue
 	}
 
 	manager = service.NewManager(&b, repo)
