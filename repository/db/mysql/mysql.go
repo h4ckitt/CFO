@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -25,6 +26,13 @@ func NewMySQLHandler() (*MeSqlRepo, error) {
 		return nil, err
 	}
 
+	if conf.Wait {
+		for !dbRepo.WaitForDB(conf.IP, conf.Port) {
+			time.Sleep(1)
+			continue
+		}
+
+	}
 	return dbRepo, dbRepo.conn.Ping()
 }
 
