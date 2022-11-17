@@ -25,7 +25,7 @@ jobs:
         run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy Code With RSYNC
-        uses: actions/rsync-deployments@5.2.1
+        uses: burnett01/rsync-deployments@5.2.1
         with:
           switches: -avzr
           remote_path: /home/h4ckit/bots/CFO/
