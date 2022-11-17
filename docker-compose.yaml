@@ -12,6 +12,7 @@ services:
   app:
     build: .
     image: cfo
+    restart: unless-stopped
     depends_on:
       - db
     ports:
