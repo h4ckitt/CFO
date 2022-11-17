@@ -107,7 +107,8 @@ func processText(update goTelegram.Update) {
 	case "/visualize":
 		fallthrough
 	case "/notionize":
-		err = manager.SendGenericMessage("This Feature Is Coming Soon", message.Chat.ID)
+		message := update.Message
+		manager.SendGenericMessage("This Feature Is Coming Soon", message.Chat.ID)
 	case "/help":
 		helpText := `Hello {username}
 
