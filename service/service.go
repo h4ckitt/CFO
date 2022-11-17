@@ -25,11 +25,6 @@ type Manager struct {
 	repo repository.Repo
 }
 
-func (m *Manager) RetrieveThisMonthSpending(userID int) ([]model.Spending, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (m *Manager) SendGenericMessage(text string, userId int) {
 	chat := goTelegram.Chat{ID: userId}
 
