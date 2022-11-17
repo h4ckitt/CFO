@@ -87,6 +87,7 @@ func processText(update goTelegram.Update) {
 			case "yesterday":
 				result, err = manager.RetrieveYesterdaySpending(message.Chat.ID)
 			case "month":
+				result, err = manager.RetrieveThisMonthSpending(message.Chat.ID)
 			default:
 				result, err = manager.RetrieveSpendingByDateRanges(message.Chat.ID, dates[1:]...)
 			}
@@ -104,7 +105,9 @@ func processText(update goTelegram.Update) {
 		}
 		return
 	case "/visualize":
+		fallthrough
 	case "/notionize":
+		err = manager.SendGenericMessage("This Feature Is Coming Soon", message.Chat.ID)
 	case "/help":
 		helpText := `Hello {username}
 
