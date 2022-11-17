@@ -5,12 +5,13 @@ import (
 	"cfo/repository"
 	"errors"
 	"fmt"
-	"github.com/h4ckitt/goTelegram"
 	"log"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/h4ckitt/goTelegram"
 )
 
 var (
@@ -164,6 +165,21 @@ func (m *Manager) RetrieveThisWeekSpending(userID int) ([]model.Spending, error)
 	nowString := now.Format("2006-01-02")
 	monDateString := monDate.Format("2006-01-02")
 	spendings, err := m.RetrieveSpendingByDateRanges(userID, monDateString, nowString)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return spendings, nil
+}
+
+func (m *Manager) RetrieveThisMonthSpending(userID int) ([]model.Spending, error) {
+	now := time.Now()
+	//	daysInAMonth := time.Date(now.Year(), now.Month() + 1, 0, 0, 0, 0, 0, time.UTC).Day()
+	firstDayOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	today := now.Format("2006-01-02")
+
+	spendings, err := m.RetrieveSpendingByDateRanges(userID, firstDayOfMonth, today)
 
 	if err != nil {
 		return nil, err
