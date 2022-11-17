@@ -65,7 +65,7 @@ func (m *MeSqlRepo) RetrieveSpending(userId int, start, end string) ([]model.Spe
 		statement = `SELECT amount, category, createdAt, note FROM spending WHERE userID = ? AND DATE(createdAt) = ?`
 		args = append(args, start)
 	} else {
-		statement = `SELECT amount, category, createdAt, note FROM spending WHERE userID = ? AND createdAt >= ? AND createdAt <= ?`
+		statement = `SELECT amount, category, createdAt, note FROM spending WHERE userID = ? AND DATE(createdAt) >= ? AND DATE(createdAt) <= ?`
 		args = append(args, start, end)
 	}
 
@@ -99,10 +99,10 @@ func (m *MeSqlRepo) RetrieveSpendingByCategory(userId int, start, end string) ([
 	args = append(args, userId)
 
 	if start == end {
-		statement = `SELECT SUM(amount), category FROM spending WHERE userID = ? GROUP BY category`
+		statement = `SELECT SUM(amount), category FROM spending WHERE userID = ? AND DATE(createdAt) = ? GROUP BY category`
 		args = append(args, start)
 	} else {
-		statement = `SELECT SUM(amount), category FROM spending WHERE userID = ? GROUP BY category AND createdAt >= ? AND createdAt <= ?`
+		statement = `SELECT SUM(amount), category FROM spending WHERE userID = ? GROUP BY category AND DATE(createdAt) >= ? AND DATE(createdAt) <= ?`
 		args = append(args, start, end)
 	}
 
