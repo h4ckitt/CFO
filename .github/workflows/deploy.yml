@@ -1,0 +1,39 @@
+name: Deployment To Vultr
+on:
+  pull_request_target:
+    types:
+      - closed
+
+jobs:
+  if_merged:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Latest Code
+        uses: actions/checkout@v3
+
+      - name: Builds Docker Image
+        run: docker build -t cfo .
+
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          known_hosts: 'placeholder'
+
+      - name: Adding Known Hosts
+        run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy Code With RSYNC
+        run: rsync -avz . ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/h4ckit/bots/CFO/
+
+      - name: Runs Deployment Commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secret.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            docker compose down
+            docker build -t cfo .
+            docker compose up -d
