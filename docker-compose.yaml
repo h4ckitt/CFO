@@ -4,6 +4,7 @@ services:
   db:
     image: mysql:latest
     container_name: lapo-register
+    restart: unless-stopped
     volumes:
       - db:/var/lib/mysql
       - ./repository/db/mysql:/docker-entrypoint-initdb.d
@@ -18,7 +19,7 @@ services:
     depends_on:
       - db
     ports:
-      - "6002:6002"
+      - "6001:6001"
     env_file:
       - .env
 
