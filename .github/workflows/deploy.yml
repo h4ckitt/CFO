@@ -5,15 +5,12 @@ on:
       - closed
 
 jobs:
-  if_merged:
+  merged job:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Latest Code
         uses: actions/checkout@v3
-
-      - name: Builds Docker Image
-        run: docker build -t cfo .
 
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2

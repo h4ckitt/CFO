@@ -1,0 +1,26 @@
+name: Build Test
+
+on:
+  pull_request:
+    types:
+      - opened
+
+jobs:
+  test_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Go 1.19
+        uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.18.0'
+
+      - name: Build Project
+        run: go build .
+
+      - name: Build Docker Container
+        run: docker build -t cfo .
+
+
