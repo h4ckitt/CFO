@@ -3,9 +3,12 @@ on:
   pull_request_target:
     types:
       - closed
+    paths-ignore:
+      - 'README.md'
+      - '.github/**'
 
 jobs:
-  merged job:
+  deploy:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
