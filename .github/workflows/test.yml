@@ -5,8 +5,8 @@ on:
     types:
       - opened
     paths-ignore:
-      'README.md'
-      '.github/**'
+      - 'README.md'
+      - '.github/**'
 
 jobs:
   test_job:
