@@ -9,4 +9,6 @@ type Repo interface {
 	SaveEntry(userId int, entry model.Spending) error
 	RetrieveSpending(userId int, start, end string) ([]model.Spending, error)
 	RetrieveSpendingByCategory(userId int, start, end string) ([]model.CategorySpending, error)
+	RetrieveUserCategories(userID int) ([]string, error)
+	SaveCategory(userId int, category string) error
 }
