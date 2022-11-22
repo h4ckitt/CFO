@@ -2,14 +2,14 @@ version: '3.9'
 
 services:
   db:
-    image: mysql:latest
+    image: postgres:alpine
     container_name: lapo-register
     restart: unless-stopped
     volumes:
-      - db:/var/lib/mysql
-      - ./repository/db/mysql:/docker-entrypoint-initdb.d
+      - db:/var/lib/postgresql/data
+      - ./repository/db/postgres:/docker-entrypoint-initdb.d
     environment:
-      MYSQL_ROOT_PASSWORD: "randomasspass"
+      POSTGRES_PASSWORD: "randomasspass"
 
   app:
     build: .
