@@ -13,7 +13,10 @@ import (
 	"github.com/h4ckitt/goTelegram"
 )
 
-var manager service.Service
+var (
+	manager *service.Manager
+	pending model.PendingReplyCache
+)
 
 func main() {
 
@@ -37,7 +40,8 @@ func main() {
 		log.Fatalf("an error occurred while creating the repo: %v\n", err)
 	}
 
-	manager = service.NewManager(&b, repo)
+	pending = model.NewPendingReplyCache()
+	manager = service.NewManager(&b, repo, pending)
 
 	port := config.GetConfig().PORT
 
@@ -54,6 +58,7 @@ func handler(update goTelegram.Update) {
 	case "text":
 		processText(update)
 	case "callback":
+		processCallback(update)
 	}
 }
 
@@ -72,7 +77,6 @@ func processText(update goTelegram.Update) {
 			return
 		}
 
-		manager.SendGenericMessage("Entry Saved Successfully", message.Chat.ID)
 	case "/show":
 		message := update.Message
 		dates := strings.Fields(message.Text)
@@ -88,6 +92,30 @@ func processText(update goTelegram.Update) {
 				result, err = manager.RetrieveYesterdaySpending(message.Chat.ID)
 			case "month":
 				result, err = manager.RetrieveThisMonthSpending(message.Chat.ID)
+			case "category":
+				var (
+					result []model.CategorySpending
+					err    error
+				)
+				// if only /show category was sent
+				if len(dates) == 2 {
+					result, err = manager.RetrieveCategoriesSpendingByDateRanges(message.Chat.ID)
+				} else {
+					result, err = manager.RetrieveCategoriesSpendingByDateRanges(message.Chat.ID, dates[2:]...)
+				}
+
+				if err != nil {
+					manager.SendGenericMessage("An error occurred while retrieving your entries", message.Chat.ID)
+					log.Println(err)
+					return
+				}
+
+				err = manager.SendCategorySpending(message.Chat.ID, result...)
+
+				if err != nil {
+					log.Println(err)
+				}
+				return
 			default:
 				result, err = manager.RetrieveSpendingByDateRanges(message.Chat.ID, dates[1:]...)
 			}
@@ -123,5 +151,37 @@ You Can Send /command help to get more verbose info on how to use each command e
 		helpText = strings.NewReplacer("{username}", update.Message.From.Firstname).Replace(helpText)
 
 		manager.SendGenericMessage(helpText, update.Message.Chat.ID)
+	default:
+		if pending.HasCachedSpending(update.Message.Chat.ID) {
+			err := manager.CompleteSaveEntry(update.Message.Chat.ID, strings.ToLower(update.Message.Text), true)
+
+			if err != nil {
+				log.Println(err)
+			}
+			manager.DeleteMessage(update.Message.MessageID-1, update.Message.Chat.ID)
+			manager.SendGenericMessage("Entry Saved Successfully", update.Message.Chat.ID)
+		}
+	}
+}
+
+func processCallback(update goTelegram.Update) {
+	defer func() {
+		err := manager.AnswerCallBackQuery(update.CallbackQuery.ID)
+
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+	callBacks := strings.SplitN(update.CallbackQuery.Data, "-", 2)
+
+	switch callBacks[0] {
+	case "category":
+		err := manager.CompleteSaveEntry(update.CallbackQuery.Message.Chat.ID, callBacks[1], false)
+
+		if err != nil {
+			log.Println(err)
+		}
+		manager.EditText("Entry Saved Successfully", update.CallbackQuery.Message.MessageID, update.CallbackQuery.Message.Chat.ID)
+
 	}
 }

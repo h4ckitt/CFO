@@ -102,7 +102,7 @@ func (m *MeSqlRepo) RetrieveSpendingByCategory(userId int, start, end string) ([
 		statement = `SELECT SUM(amount), category FROM spending WHERE userID = ? AND DATE(createdAt) = ? GROUP BY category`
 		args = append(args, start)
 	} else {
-		statement = `SELECT SUM(amount), category FROM spending WHERE userID = ? GROUP BY category AND DATE(createdAt) >= ? AND DATE(createdAt) <= ?`
+		statement = `SELECT SUM(amount), category FROM spending WHERE userID = ? AND DATE(createdAt) >= ? AND DATE(createdAt) <= ? GROUP BY category`
 		args = append(args, start, end)
 	}
 
@@ -122,4 +122,32 @@ func (m *MeSqlRepo) RetrieveSpendingByCategory(userId int, start, end string) ([
 		result = append(result, res)
 	}
 	return result, nil
+}
+
+func (m *MeSqlRepo) RetrieveUserCategories(userID int) ([]string, error) {
+	var result []string
+
+	res, err := m.conn.Query("SELECT category FROM categories WHERE userID = ? OR userID = ?", userID, 0)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for res.Next() {
+		var category string
+
+		if err = res.Scan(&category); err != nil {
+			return nil, err
+		}
+
+		result = append(result, category)
+	}
+
+	return result, nil
+}
+
+func (m *MeSqlRepo) SaveCategory(userId int, category string) error {
+	_, err := m.conn.Exec("INSERT INTO categories (userId, category) VALUES (?, ?)", userId, category)
+
+	return err
 }

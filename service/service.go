@@ -17,12 +17,14 @@ import (
 var (
 	decimalRegex = regexp.MustCompile(`^\d+(?:.\d{2})?$`)
 	dateRegex    = regexp.MustCompile(`^\d{4}(?:-\d{2}){2}$`)
-	dotRemover   = strings.NewReplacer(".", "")
+	//textRegex    = regexp.MustCompile(`([A-Za-z0-9]+).*`)
+	dotRemover = strings.NewReplacer(".", "")
 )
 
 type Manager struct {
-	tbot *goTelegram.Bot
-	repo repository.Repo
+	tbot    *goTelegram.Bot
+	repo    repository.Repo
+	pending model.PendingReplyCache
 }
 
 func (m *Manager) SendGenericMessage(text string, userId int) {
@@ -33,6 +35,32 @@ func (m *Manager) SendGenericMessage(text string, userId int) {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+func (m *Manager) EditText(text string, messageID, chatID int) {
+	message := goTelegram.Message{MessageID: messageID, Chat: goTelegram.Chat{ID: chatID}}
+
+	_, err := m.tbot.EditMessage(message, text)
+
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (m *Manager) DeleteMessage(messageID, chatID int) {
+	message := goTelegram.Message{MessageID: messageID, Chat: goTelegram.Chat{ID: chatID}}
+
+	err := m.tbot.DeleteMessage(message)
+
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (m *Manager) AnswerCallBackQuery(queryID string) error {
+	err := m.tbot.AnswerCallback(queryID, "", false)
+
+	return err
 }
 
 func (m *Manager) SendSpendingData(userID int, spending ...model.Spending) error {
@@ -67,6 +95,132 @@ func (m *Manager) SendSpendingData(userID int, spending ...model.Spending) error
 	m.SendGenericMessage(text.String(), userID)
 
 	return nil
+}
+
+func (m *Manager) SendCategorySpending(userID int, spending ...model.CategorySpending) error {
+
+	text := strings.Builder{}
+
+	if len(spending) == 0 {
+		m.SendGenericMessage("No Spending Data Found For You", userID)
+		return nil
+	}
+
+	var total float64
+
+	text.WriteString("==== Spending Data By Categories ====\n")
+
+	for _, data := range spending {
+		amt := float64(data.TotalSpending) / 100
+		total += amt
+		text.WriteString(fmt.Sprintf("Category: %s\nAmount: %.2f\n\n", data.Category, amt))
+	}
+
+	text.WriteString(fmt.Sprintf("=====================================\nTotal: %.2f\n=====================================", total))
+
+	m.SendGenericMessage(text.String(), userID)
+
+	return nil
+}
+
+func (m *Manager) RetrieveCategoriesSpendingByDateRanges(userID int, ranges ...string) ([]model.CategorySpending, error) {
+	var (
+		start       string
+		stop        string
+		validRanges = make([]string, 2)
+	)
+
+	switch {
+	case len(ranges) == 0:
+		now := time.Now()
+		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+		stop = now.Format("2006-01-02")
+
+	case len(ranges) == 1:
+		if dateRegex.MatchString(ranges[0]) {
+			start = ranges[0]
+			stop = time.Now().Format("2006-01-02")
+		} else {
+			m.SendGenericMessage("Invalid date specified", userID)
+			return nil, errors.New("invalid date specified")
+		}
+
+		st, _ := time.Parse("2006-01-02", start)
+		et, _ := time.Parse("2006-01-02", stop)
+
+		if st.After(et) {
+			m.SendGenericMessage("Start Date Cannot Be After Today", userID)
+			return nil, errors.New("start date after current date")
+		}
+
+	case len(ranges) == 2:
+		st, err := time.Parse("2006-01-02", ranges[0])
+
+		if err != nil {
+			m.SendGenericMessage("Invalid Start Date Specified", userID)
+			return nil, errors.New("invalid start date specified")
+		}
+
+		et, err := time.Parse("2006-01-02", ranges[1])
+
+		if err != nil {
+			m.SendGenericMessage("Invalid End Date Specified", userID)
+			return nil, errors.New("invalid end date specified")
+		}
+
+		start = st.Format("2006-01-02")
+		stop = et.Format("2006-01-02")
+
+	default:
+		numValid := 0
+		for _, date := range ranges {
+			if dateRegex.MatchString(date) {
+				validRanges[numValid] = date
+				numValid++
+			}
+
+			if numValid > 2 {
+				break
+			}
+		}
+
+		switch numValid {
+		case 0:
+			now := time.Now()
+			start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+			stop = now.Format("2006-01-02")
+
+		case 1:
+			now := time.Now()
+			start = validRanges[0]
+			t, _ := time.Parse("2006-01-02", start)
+
+			if t.After(now) {
+				m.SendGenericMessage("Start Date Cannot Be After Current Date", userID)
+				return nil, errors.New("start date is after current date")
+			}
+
+			stop = now.Format("2006-01-02")
+		default:
+			start = validRanges[0]
+			stop = validRanges[1]
+			st, _ := time.Parse("2006-01-02", start)
+			et, _ := time.Parse("2006-01-02", stop)
+
+			if st.After(et) {
+				m.SendGenericMessage("Start Date Cannot Be After Current Date", userID)
+				return nil, errors.New("start date is after current date")
+			}
+		}
+	}
+
+	spending, err := m.repo.RetrieveSpendingByCategory(userID, start, stop)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return spending, nil
 }
 
 func (m *Manager) RetrieveSpendingByDateRanges(userID int, ranges ...string) ([]model.Spending, error) {
@@ -183,10 +337,11 @@ func (m *Manager) RetrieveThisMonthSpending(userID int) ([]model.Spending, error
 	return spendings, nil
 }
 
-func NewManager(tbot *goTelegram.Bot, repo repository.Repo) *Manager {
+func NewManager(tbot *goTelegram.Bot, repo repository.Repo, pending model.PendingReplyCache) *Manager {
 	return &Manager{
-		tbot: tbot,
-		repo: repo,
+		tbot:    tbot,
+		repo:    repo,
+		pending: pending,
 	}
 }
 
@@ -202,10 +357,10 @@ func (m *Manager) SaveEntry(userID, messageID int, text string) error {
 		note string
 	)
 	amtStr := bits[0]
-	if !strings.Contains(amtStr, ".") {
-		amtStr = fmt.Sprintf("%s00", amtStr)
-	} else {
+	if strings.Contains(amtStr, ".") {
 		amtStr = dotRemover.Replace(amtStr)
+	} else {
+		amtStr = fmt.Sprintf("%s00", amtStr)
 	}
 
 	if len(bits) > 1 {
@@ -228,6 +383,31 @@ func (m *Manager) SaveEntry(userID, messageID int, text string) error {
 		return err
 	}
 
+	categories, err := m.repo.RetrieveUserCategories(userID)
+
+	if err != nil {
+		return err
+	}
+
+	if len(categories) > 0 {
+		categoriesToSend := make([]string, len(categories)*2)
+
+		for i, j := 0, 0; i < len(categories); i, j = i+1, j+2 {
+			categoriesToSend[j], categoriesToSend[j+1] = categories[i], fmt.Sprintf("category-%s", categories[i])
+		}
+
+		m.tbot.CreateKeyboard(userID, 3)
+		err = m.tbot.AddButtons(userID, categoriesToSend...)
+
+		if err != nil {
+			return err
+		}
+
+		m.SendGenericMessage("Select A Category Or Type A New One", userID)
+	} else {
+		m.SendGenericMessage("Please Enter A Category Name, It'll Be Saved Against Your Next Spend", userID)
+	}
+
 	entry := model.Spending{
 		MessageID: messageID,
 		Amount:    amt,
@@ -236,5 +416,28 @@ func (m *Manager) SaveEntry(userID, messageID int, text string) error {
 		Category:  "General",
 	}
 
-	return m.repo.SaveEntry(userID, entry)
+	m.pending.CacheSpending(userID, &entry)
+
+	//return m.repo.SaveEntry(userID, entry)
+	return nil
+}
+
+func (m *Manager) CompleteSaveEntry(userID int, category string, shouldSave bool) error {
+	cachedSpending := m.pending.RetrieveSpending(userID)
+
+	cachedSpending.Category = category
+
+	m.pending.DeleteCachedSpending(userID)
+
+	if shouldSave {
+		err := m.repo.SaveCategory(userID, category)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	m.tbot.DeleteKeyboard(userID)
+
+	return m.repo.SaveEntry(userID, *cachedSpending)
 }
