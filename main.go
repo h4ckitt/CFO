@@ -3,7 +3,7 @@ package main
 import (
 	"cfo/config"
 	"cfo/model"
-	"cfo/repository/db/mysql"
+	"cfo/repository/db/postgres"
 	"cfo/service"
 	"fmt"
 	"log"
@@ -34,7 +34,7 @@ func main() {
 
 	b.SetHandler(handler)
 
-	repo, err := mysql.NewMySQLHandler()
+	repo, err := postgres.NewPgresRepo()
 
 	if err != nil {
 		log.Fatalf("an error occurred while creating the repo: %v\n", err)

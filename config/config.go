@@ -17,7 +17,7 @@ func ReadConfig(filename string) error {
 	}
 
 	conf = config{
-		DB: MySQLDatabase{
+		DB: PostgresDatabase{
 			DBName:   os.Getenv("DB_NAME"),
 			UserName: os.Getenv("DB_USER_NAME"),
 			Password: os.Getenv("DB_PASS"),
@@ -25,6 +25,7 @@ func ReadConfig(filename string) error {
 			IP:       os.Getenv("DB_IP"),
 			Wait:     strings.ToLower(os.Getenv("WAITDB")) == "true",
 		},
+
 		TBotAPIKey: os.Getenv("TBOT_API_KEY"),
 		PORT:       os.Getenv("PORT"),
 	}
