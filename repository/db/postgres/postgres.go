@@ -65,7 +65,7 @@ func (p PgresRepo) RetrieveSpending(userId int, start, end string) ([]model.Spen
 		statement = `SELECT amount, category, createdAt, note FROM spending WHERE userID = $1 AND DATE(createdAt) = $2`
 		args = append(args, start)
 	} else {
-		statement = `SELECT amount, category, createdAt, note FROM spending WHERE userID = $1 AND DATE(createdAt) >= $2 AND DATE(createdAt) <= $3`
+		statement = `SELECT amount, category, createdAt, note FROM spending WHERE userID = $1 AND DATE(createdAt) >= $2 AND DATE(createdAt) <= $3 ORDER BY createdAt`
 		args = append(args, start, end)
 	}
 
